@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, Float, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from Utils.save_to_MySql import Base
 
 
@@ -31,9 +31,9 @@ class DataModel(Base):
 
     # relationships
     # lane = relationship()  # 车道线
-    # vehicle = relationship()  #
-    person = relationship('Person')
-    head = relationship('Head')
+    vehicle = relationship('Vehicle', backref=backref('body'))  # vehicle中的属性
+    person = relationship('Person', backref=backref('body'))
+    head = relationship('Head', backref=backref('body'))
     # hand = relationship()
     # face_keypoint_8 = relationship()
     # face_keypoint_72 = relationship()

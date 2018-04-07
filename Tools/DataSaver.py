@@ -28,7 +28,7 @@ def main(root_path):
 
 def save_body_data(js, data_id, version):
     image_key = js['image_key']
-    key = data_id + "_" + str(version) + '_' + image_key
+    key = TYPE + "_" + data_id + '_' + image_key
     video_name = get_json(js, 'video_name')
     video_index = get_json(js, 'video_index')
     width = js['width']
@@ -149,6 +149,7 @@ def save_vehicle(vehicles, key):
             logging.debug('save vehicle success ({})'.format(str(vehicle)))
         except:
             raise
+
 
 if __name__ == '__main__':
     main(data_path_dict[TYPE + '_' + DATA_TYPE])

@@ -1,4 +1,4 @@
-import os, json
+import os, json, re
 
 
 def parse_pedestrian_json(id, j, data_id, version):
@@ -50,15 +50,21 @@ def get_json_file(path):
 
 
 def parse_id_version(file_path):
-    data_id = os.path.splitext(file_path.split('\\')[-1])[0].split('_')[0]
-    try:
-        if not file_path.split('\\')[-1].find('_') == -1:
-            version = int(file_path.split('\\')[-1].split('_')[1].split('.')[0].replace('v', ''))
-        else:
-            version = None
-    except:
-        print('version error,file_path is ', file_path)
-        raise
+    # data_id = os.path.splitext(file_path.split('\\')[-1])[0].split('_')[0]
+    file_name = os.path.splitext(os.path.split(file_path)[1])[0]
+    data_id = re.search(r'\d*', file_name)[0]
+    # try:
+    #     if not file_path.split('\\')[-1].find('_') == -1:
+    #         version = int(file_path.split('\\')[-1].split('_')[1].split('.')[0].replace('v', ''))
+    #     else:
+    #         version = None
+    # except:
+    #     print('version error,file_path is ', file_path)
+    #     raise
+    if re.match(r'\d*_v?(\d)', file_name):
+        version = re.search(r'\d*_v?(\d*)', file_name).group(1)
+    else:
+        version = None
     return data_id, version
 
 
