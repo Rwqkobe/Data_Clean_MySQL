@@ -12,6 +12,7 @@ class DataModel(Base):
     version = Column(Integer)
 
     key = Column(String(100), unique=True)
+    check = Column(String(100))
     image_key = Column(String(100))
     video_name = Column(String(100))
     video_index = Column(Integer)
@@ -25,9 +26,9 @@ class DataModel(Base):
     # calculate
     rect_num = Column(Integer)
     # fill by us
-    weather = Column(String(20))
-    road = Column(String(20))
-    daynight = Column(String(20))
+    # weather = Column(String(20))
+    # road = Column(String(20))
+    # daynight = Column(String(20))
 
     # relationships
     # lane = relationship()  # 车道线
@@ -66,7 +67,8 @@ class Person(Base):
     blur = Column(String(20))
     occlusion = Column(String(20))
     hard = Column(String(20))
-
+    # diy
+    # difficulty=Column(String(20))
 
 class Head(Base):
     __tablename__ = 'head'
@@ -94,7 +96,8 @@ class Head(Base):
     occlusion = Column(String(20))
     ignore = Column(String(20))
     hard = Column(String(20))
-
+    # diy
+    # difficulty=Column(String(20))
 
 class Vehicle(Base):
     __tablename__ = 'vehicle'
@@ -118,3 +121,42 @@ class Vehicle(Base):
     blur = Column(String(20))
     occlusion = Column(String(20))
     hard_sample = Column(String(20))
+    # diy
+    difficulty=Column(String(20))
+
+# 交通标志牌
+class Traffic_sign(Base):
+    __tablename__ = 'traffic_sign'
+    # identity
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key = Column(String(100), ForeignKey('image_data.key'))
+    # rect
+    height = Column(Float(precision=1))
+    width = Column(Float(precision=1))
+    area = Column(Integer)
+    diagonal = Column(Float(precision=1))
+    h_div_w = Column(Float(precision=1))
+    # attrs
+    type = Column(String(30))
+    value = Column(String(30))
+    # others
+    ignore = Column(String(20))
+    occlusion = Column(String(20))
+    hard = Column(String(20))
+
+    # diy
+    # difficulty=Column(String(20))
+
+
+class Weather(Base):
+    __tablename__ = 'weather_data'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    data_id = Column(String(20))
+    key = Column(String(100), unique=True)
+    # time
+    year = Column(String(20))
+    hour = Column(Integer)
+    # weather road daynight
+    weather = Column(String(20))
+    road = Column(String(20))
+    daynight = Column(String(20))

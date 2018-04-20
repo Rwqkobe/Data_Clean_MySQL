@@ -1,16 +1,16 @@
 from Utils.save_to_MySql import MySqlSaver
-from Model.DataModel import DataModel, Head, Person, Vehicle
+from Model.DataModel import DataModel, Head, Person, Vehicle, Traffic_sign
 from sqlalchemy.exc import IntegrityError
 import math, logging
 from Utils.utils import *
 from config import data_dict, data_path_dict
 
-logging.basicConfig(filename='logging.txt', format='[%(asctime)s]   %(message)s', datefmt='%Y-%m-%d %H:%M:%S %p',
-                    level=logging.DEBUG, filemode='w')
+logging.basicConfig(filename='logging.txt', format='[%(asctime)s]   %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S %p', level=logging.DEBUG, filemode='w')
 
-DATA_TYPE = 'test'
-TYPE = 'Pedestrian'
-mysql = MySqlSaver('hobot_data_test')
+DATA_TYPE = 'train'
+TYPE = 'Vehicle'
+mysql = MySqlSaver('hobot_data')
 
 
 def main(root_path):
@@ -22,7 +22,9 @@ def main(root_path):
             json_list = get_each_json_list(file_path)
             for js in json_list:
                 save_body_data(js, data_id, version)
+            mysql.commit()
         except StopIteration:
+            mysql.commit()
             break
 
 
@@ -36,8 +38,10 @@ def save_body_data(js, data_id, version):
     rects = get_json(js, data_dict[TYPE])
     if TYPE == 'DMS':
         year, time, hour = None, None, None
+        check = None
     else:
         year, time, hour = parse_year_time_hour(image_key)
+        check = data_id + "_" + year + "_" + str(int(hour))
 
     if rects:
         rect_num = len(rects)
@@ -46,17 +50,9 @@ def save_body_data(js, data_id, version):
 
     body = DataModel(key=key, data_type=DATA_TYPE, type=TYPE, data_id=data_id, version=version,
                      image_key=image_key, video_name=video_name, video_index=video_index,
-                     width=width, height=height, year=year, hour=hour, time=time, rect_num=rect_num)
-    try:
-        mysql.save(body)
-        logging.debug('save body success ({})'.format(str(js)))
-    except IntegrityError as e:
-        logging.debug('save body error ({})'.format(str(js)))
-        logging.debug(e.args)
-        if str(e.args).find('Duplicate entry') == -1:
-            raise
-        else:
-            return
+                     width=width, height=height, year=year, hour=hour, time=time,
+                     rect_num=rect_num, check=check)
+    mysql.save(body)
 
     if rects:
         if data_dict[TYPE] == 'person':
@@ -65,6 +61,8 @@ def save_body_data(js, data_id, version):
             save_vehicle(rects, key=key)
         elif data_dict[TYPE] == 'head':
             save_head(rects, key=key)
+        elif data_dict[TYPE] == 'traffic_sign':
+            save_traffic_sign(rects, key=key)
 
 
 def save_person(persons, key):
@@ -74,13 +72,17 @@ def save_person(persons, key):
             width = abs(round(float(person['data'][2]) - float(person['data'][0]), 1))
             area = int(height * width)
             diagonal = round(math.sqrt((height ** 2 + width ** 2)), 1)
-            h_div_w = round(height / width, 1)
+            try:
+                h_div_w = round(height / width, 1)
+            except ZeroDivisionError:
+                h_div_w = None
             hard = person['attrs'].get('hard', None)
             occlusion = person['attrs'].get('occlusion', None)
             ignore = person['attrs'].get('ignore', None)
             blur = person['attrs'].get('blur', None)
             type = person['attrs'].get('type', None)
             pose = person['attrs'].get('pose', None)
+            difficulty = calc_difficulty(height, occlusion)
             pr = Person(key=key, height=height, width=width, area=area, diagonal=diagonal, h_div_w=h_div_w,
                         pose=pose, type=type, ignore=ignore, blur=blur, occlusion=occlusion, hard=hard)
             mysql.save(pr)
@@ -96,7 +98,10 @@ def save_head(heads, key):
             width = abs(round(float(head['data'][2]) - float(head['data'][0]), 1))
             area = int(height * width)
             diagonal = round(math.sqrt((height ** 2 + width ** 2)), 1)
-            h_div_w = round(height / width, 1)
+            try:
+                h_div_w = round(height / width, 1)
+            except ZeroDivisionError:
+                h_div_w = None
             hard = head['attrs'].get('hard', None)
             occlusion = head['attrs'].get('occlusion', None)
             ignore = head['attrs'].get('ignore', None)
@@ -129,7 +134,10 @@ def save_vehicle(vehicles, key):
             width = abs(round(float(vehicle['data'][2]) - float(vehicle['data'][0]), 1))
             area = int(height * width)
             diagonal = round(math.sqrt((height ** 2 + width ** 2)), 1)
-            h_div_w = round(height / width, 1)
+            try:
+                h_div_w = round(height / width, 1)
+            except ZeroDivisionError:
+                h_div_w = None
             hard_sample = vehicle['attrs'].get('hard_sample', None)
             occlusion = vehicle['attrs'].get('occlusion', None)
             ignore = vehicle['attrs'].get('ignore', None)
@@ -138,15 +146,51 @@ def save_vehicle(vehicles, key):
             color = vehicle['attrs'].get('color', None)
             part = vehicle['attrs'].get('part', None)
             light = vehicle['attrs'].get('light', None)
-            if vehicle['attrs'].get('score', None) != None:
-                score = round(float(vehicle['attrs'].get('score', None)), 1)
-            else:
+            try:
+                score = round(float(vehicle['attrs'].get('score')), 1)
+            except:
                 score = None
+            difficulty = calc_difficulty(height, occlusion)
             vh = Vehicle(key=key, height=height, width=width, area=area, diagonal=diagonal, h_div_w=h_div_w,
-                         hard_sample=hard_sample, ignore=ignore, blur=blur, type=type,
-                         color=color, part=part, score=score, light=light, occlusion=occlusion, )
+                         hard_sample=hard_sample, ignore=ignore, blur=blur, type=type, color=color,
+                         part=part, score=score, light=light, occlusion=occlusion, difficulty=difficulty)
             mysql.save(vh)
             logging.debug('save vehicle success ({})'.format(str(vehicle)))
+        except:
+            print('vehicles', vehicles)
+            print('key', key)
+            print('vehicle,score', vehicle['attrs'].get("score"))
+            raise
+
+
+def save_traffic_sign(signs, key):
+    for sign in signs:
+        try:
+            height = abs(round(float(sign['data'][3]) - float(sign['data'][1]), 1))
+            width = abs(round(float(sign['data'][2]) - float(sign['data'][0]), 1))
+            area = int(height * width)
+            diagonal = round(math.sqrt((height ** 2 + width ** 2)), 1)
+            try:
+                h_div_w = round(height / width, 1)
+            except ZeroDivisionError:
+                h_div_w = None
+            hard = sign['attrs'].get('hard_sample', None)
+            occlusion = sign['attrs'].get('occlusion', None)
+            if isinstance(occlusion, list):
+                occlusion = None
+            ignore = sign['attrs'].get('ignore', None)
+            value = sign['attrs'].get('value', None)
+            type = sign['attrs'].get('type', None)
+            if type is None:
+                type = sign['attrs'].get('main_type', None)
+            if type:
+                if re.match(r'(.*?)\d', type):
+                    type = re.search(r'(.*?)\d', type).group(1)
+            difficulty = calc_difficulty(height, occlusion)
+            tr = Traffic_sign(key=key, height=height, width=width, area=area, diagonal=diagonal, h_div_w=h_div_w,
+                              hard=hard, ignore=ignore, type=type, occlusion=occlusion, value=value)
+            mysql.save(tr)
+            logging.debug('save traffic_sign success ({})'.format(str(sign)))
         except:
             raise
 

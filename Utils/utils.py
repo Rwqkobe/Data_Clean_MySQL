@@ -25,19 +25,30 @@ def parse_pedestrian_json(id, j, data_id, version):
 
 
 def parse_year_time_hour(image_key):
-    image_name = os.path.splitext(image_key)[0]
-    if image_name.find('Michigan') != -1:
-        return None
-    if image_name.find('ADAS') != -1:
+    image_name = os.path.splitext(image_key)[0].lower()
+    if image_name.find('michigan') != -1:
+        return None, None, None
+    if image_name.find('._') != -1:
+        year = image_name.split('_')[1]
+        time = image_name.split('_')[2]
+        hour = time[:2].replace('.', '')
+        return year, time, hour
+    if image_name.find('adassoc') != -1:
+        image_key = image_name.replace('adassoc_', '').replace('-', '_')
+    elif image_name.find('adas') != -1:
         image_key = image_name.split('_')[1].replace('-', '_')
-    elif image_name.find('Michigan') != -1:
-        raise KeyError
     else:
         image_key = image_name
+
     time_list = image_key.split('_')
     year = time_list[0]
-    time = time_list[1]
-    hour = int(time[:2])
+    try:
+        time = time_list[1]
+        hour = int(time[:2])
+    except:
+        print('time_list', time_list)
+        time = "000000"
+        hour = "0"
     return year, time, hour
 
 
@@ -46,13 +57,14 @@ def get_json_file(path):
     for file in os.listdir(path):
         file_path = os.path.join(path, file)
         if not os.path.isdir(file_path):
-            yield file_path
+            if os.path.splitext(file_path)[1] == '.json':
+                yield file_path
 
 
 def parse_id_version(file_path):
     # data_id = os.path.splitext(file_path.split('\\')[-1])[0].split('_')[0]
     file_name = os.path.splitext(os.path.split(file_path)[1])[0]
-    data_id = re.search(r'\d*', file_name)[0]
+    data_id = re.search(r'\d*', file_name).group(0)
     # try:
     #     if not file_path.split('\\')[-1].find('_') == -1:
     #         version = int(file_path.split('\\')[-1].split('_')[1].split('.')[0].replace('v', ''))
@@ -71,12 +83,11 @@ def parse_id_version(file_path):
 # return each json in this file as a list
 def get_each_json_list(file_path):
     l = list()
-    with open(file_path, 'r')as f:
+    with open(file_path, 'r', encoding='utf-8')as f:
         for line in f.readlines():
             try:
                 l.append(json.loads(line))
             except:
-
                 continue
     return l
 
@@ -86,3 +97,22 @@ def get_json(js, key):
         return js[key]
     except KeyError:
         return None
+
+
+def calc_difficulty(height, occlusion):
+    try:
+        height = float(height)
+    except:
+        return ''
+    if not occlusion is None:
+        if height > 40 and occlusion == 'full_visible':
+            difficulty = 'Easy'
+        elif height > 25 and (occlusion == 'full_visible' or occlusion == 'occluded'):
+            difficulty = 'Moderate'
+        elif height > 25 and (occlusion == 'heavily_occluded' or occlusion == 'invisible'):
+            difficulty = 'Hard'
+        else:
+            difficulty = 'Others'
+    else:
+        difficulty = 'NoDefine'
+    return difficulty
